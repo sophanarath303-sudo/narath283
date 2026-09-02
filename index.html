@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ford Garage - Premium System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Kantumruy Pro"', 'sans-serif'] },
+                    colors: {
+                        ford: {
+                            900: '#00132f', 800: '#001c43', 700: '#002a63',
+                            600: '#003a88', 500: '#0052cc', 400: '#3377ff',
+                            100: '#e0eaff', 50: '#f0f5ff', gold: '#f5a623',
+                        }
+                    },
+                    boxShadow: {
+                        'glass': '0 8px 32px 0 rgba(0, 28, 67, 0.1)',
+                        'glass-dark': '0 8px 32px 0 rgba(0, 0, 0, 0.6)',
+                        'neon': '0 0 20px rgba(0, 82, 204, 0.6)',
+                        'gold-glow': '0 0 20px rgba(245, 166, 35, 0.4)'
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                        'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'bounce-slow': 'bounce 3s infinite',
+                        'pulse-glow': 'pulseGlow 2s infinite',
+                    },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+                        slideUp: { '0%': { transform: 'translateY(30px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+                        pulseGlow: { '0%, 100%': { opacity: 1, transform: 'scale(1)' }, '50%': { opacity: .8, transform: 'scale(1.05)' } }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { -webkit-tap-highlight-color: transparent; background-color: #f4f7fb; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* View System */
+        .view-section {
+            display: none; opacity: 0; transition: opacity 0.5s ease, transform 0.5s ease;
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%;
+        }
+        .view-section.active { display: flex; opacity: 1; z-index: 10; }
+
+        /* Modal System */
+        .modal-overlay {
+            opacity: 0; pointer-events: none; transition: all 0.4s ease;
+            backdrop-filter: blur(10px); background: rgba(0,19,47,0.6);
+        }
+        .modal-overlay.show { opacity: 1; pointer-events: auto; z-index: 100; }
+        .modal-content { transform: translateY(100%); transition: transform 0.5s cubic-bezier(0.2, 1, 0.3, 1); }
+        .modal-overlay.show .modal-content { transform: translateY(0); }
+
+        /* UI Elements */
+        .glass-panel { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.5); }
+        .dark-glass { background: rgba(0, 19, 47, 0.8); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
+        
+        .vip-card-bg { 
+            background: linear-gradient(135deg, #2b2b2b 0%, #1a1a1a 100%); 
+            position: relative; overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        .vip-card-bg::before {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: linear-gradient(to bottom right, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0) 100%);
+            transform: rotate(30deg); pointer-events: none;
+        }
+
+        /* Toasts */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 12px; }
+        .toast { transform: translateX(120%); transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); opacity: 0; min-width: 300px; }
+        .toast.show { transform: translateX(0); opacity: 1; }
+
+        /* Backgrounds */
+        .auth-bg {
+            background-color: #00132f;
+            background-image: radial-gradient(circle at 50% -20%, #003a88 0%, #00132f 60%);
+        }
+        
+        /* Loader */
+        #loading-overlay { position: fixed; inset: 0; background: #00132f; z-index: 10000; display: flex; justify-content: center; align-items: center; transition: opacity 0.6s ease; }
+        .ford-loader { width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1); border-top-color: #f5a623; border-radius: 50%; animation: spin 1s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-slate-800 font-sans h-screen w-screen overflow-hidden relative selection:bg-ford-500 selection:text-white">
+
+    <!-- Loading Screen -->
+    <div id="loading-overlay">
+        <div class="text-center animate-pulse-glow">
+            <div class="ford-loader mx-auto mb-6"></div>
+            <h2 class="text-white font-black tracking-widest text-2xl">FORD<span class="text-ford-gold">GARAGE</span></h2>
+            <p class="text-blue-300 text-xs mt-3 uppercase tracking-widest font-bold">Initializing System...</p>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <div id="auth-view" class="view-section flex-col justify-center items-center auth-bg relative overflow-hidden">
+        <!-- Decorative Background Elements -->
+        <div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+            <div class="absolute w-[500px] h-[500px] bg-ford-600/20 rounded-full blur-[100px] -top-[200px] -left-[100px]"></div>
+            <div class="absolute w-[400px] h-[400px] bg-ford-gold/10 rounded-full blur-[80px] bottom-[50px] -right-[100px]"></div>
+        </div>
+
+        <div class="z-10 w-full max-w-[400px] px-6 animate-slide-up">
+            <div class="text-center mb-10">
+                <div class="inline-flex items-center justify-center w-24 h-24 rounded-3xl dark-glass text-ford-gold text-5xl mb-6 shadow-gold-glow">
+                    <i class="fa-solid fa-car-shield"></i>
+                </div>
+                <h1 class="text-4xl font-black tracking-wider text-white">FORD<span class="text-ford-gold">GARAGE</span></h1>
+                <p class="text-blue-200 text-sm mt-3 font-medium opacity-80">Premium Workshop Management</p>
+            </div>
+
+            <!-- Login Form -->
+            <div id="login-form-container" class="dark-glass p-8 rounded-[2.5rem] shadow-2xl transition-all duration-300 border border-white/10 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-ford-500 to-ford-gold"></div>
+                <h2 class="text-2xl font-bold text-white mb-6 text-center">ចូលគណនី</h2>
+                <form onsubmit="handleLogin(event)" class="space-y-5">
+                    <div class="relative">
+                        <i class="fa-solid fa-phone absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="tel" id="login-phone" required class="w-full bg-white/5 border border-white/10 text-white rounded-2xl pl-12 pr-4 py-4 outline-none focus:border-ford-400 focus:bg-white/10 transition-all placeholder-slate-400 font-medium" placeholder="លេខទូរស័ព្ទ (ឧ. 012345678)">
+                    </div>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="password" id="login-pass" required class="w-full bg-white/5 border border-white/10 text-white rounded-2xl pl-12 pr-4 py-4 outline-none focus:border-ford-400 focus:bg-white/10 transition-all placeholder-slate-400 font-medium" placeholder="ពាក្យសម្ងាត់">
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-ford-600 to-ford-500 hover:from-ford-500 hover:to-ford-400 text-white font-bold py-4 rounded-2xl shadow-neon transition-all mt-2 active:scale-[0.98] text-lg flex justify-center items-center gap-2">
+                        <span>ចូលប្រើប្រាស់</span> <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </form>
+                <div class="mt-8 text-center text-sm text-slate-400">
+                    មិនទាន់មានគណនី? <button onclick="toggleAuthForm()" class="text-ford-gold font-bold hover:text-yellow-300 transition-colors ml-1 outline-none">ចុះឈ្មោះឥឡូវនេះ</button>
+                </div>
+                
+                <!-- Demo Hint -->
+                <div class="mt-6 p-4 bg-black/40 border border-white/5 rounded-2xl text-xs text-blue-200 backdrop-blur-md">
+                    <p class="font-bold mb-3 text-white flex items-center gap-2"><i class="fa-solid fa-key text-ford-gold"></i> គណនីសាកល្បង (Demo):</p>
+                    <div class="flex justify-between border-b border-white/5 pb-2 mb-2">
+                        <span class="opacity-80">ភ្ញៀវ (Customer)</span><span class="font-mono bg-white/10 px-2 rounded">012345678 / 123</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="opacity-80">រដ្ឋបាល (Admin)</span><span class="font-mono bg-white/10 px-2 rounded">099999999 / admin</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Register Form -->
+            <div id="register-form-container" class="dark-glass p-8 rounded-[2.5rem] shadow-2xl hidden transition-all duration-300 border border-white/10 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-ford-gold to-yellow-400"></div>
+                <h2 class="text-2xl font-bold text-white mb-6 text-center">បង្កើតគណនីថ្មី</h2>
+                <form onsubmit="handleRegister(event)" class="space-y-4">
+                    <input type="text" id="reg-name" required class="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3.5 outline-none focus:border-ford-gold focus:bg-white/10 transition-all placeholder-slate-400" placeholder="ឈ្មោះពេញ (ឧ. ម៉េង ហួរ)">
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="tel" id="reg-phone" required class="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3.5 outline-none focus:border-ford-gold transition-all placeholder-slate-400" placeholder="លេខទូរស័ព្ទ">
+                        <input type="password" id="reg-pass" required class="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3.5 outline-none focus:border-ford-gold transition-all placeholder-slate-400" placeholder="ពាក្យសម្ងាត់">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" id="reg-car" required class="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3.5 outline-none focus:border-ford-gold transition-all placeholder-slate-400" placeholder="ម៉ូដែល (Raptor)">
+                        <input type="text" id="reg-plate" required class="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3.5 outline-none focus:border-ford-gold transition-all placeholder-slate-400" placeholder="ស្លាកលេខ (2B-1234)">
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-ford-gold to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-ford-900 font-black py-4 rounded-xl shadow-gold-glow transition-all mt-4 active:scale-95 text-lg">
+                        ចុះឈ្មោះ
+                    </button>
+                </form>
+                <div class="mt-6 text-center text-sm text-slate-400">
+                    មានគណនីរួចហើយ? <button onclick="toggleAuthForm()" class="text-ford-400 font-bold hover:text-white transition-colors ml-1 outline-none">ត្រលប់ទៅ Login</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="customer-web" class="view-section flex-col h-full w-full bg-slate-900 relative">
+        <div class="w-full max-w-[480px] mx-auto h-full bg-[#f8fafc] relative flex flex-col overflow-hidden shadow-2xl border-x border-white/10">
+            
+            <!-- Customer Floating Header Actions -->
+            <div class="absolute top-5 left-5 right-5 flex justify-between items-center z-50 pointer-events-none">
+                <div class="glass-panel px-4 py-2 rounded-full shadow-md flex items-center gap-2 text-xs font-bold text-ford-800 pointer-events-auto">
+                    <span class="relative flex h-2.5 w-2.5">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                    </span>
+                    Live App
+                </div>
+                <button onclick="openModal('cart-modal')" class="w-12 h-12 rounded-full bg-ford-900 text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all pointer-events-auto relative border-2 border-white">
+                    <i class="fa-solid fa-bag-shopping text-lg"></i>
+                    <span id="cart-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold shadow-sm hidden ring-2 ring-ford-900">0</span>
+                </button>
+            </div>
+
+            <!-- Customer Tab: HOME -->
+            <div id="cust-tab-home" class="cust-tab-content h-full flex flex-col relative overflow-hidden">
+                <!-- Gorgeous Curved Header -->
+                <header class="bg-ford-900 pt-20 pb-12 px-6 rounded-b-[40px] shadow-lg shrink-0 relative z-20 overflow-hidden">
+                    <div class="absolute top-0 right-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+                    <div class="absolute -top-10 -right-10 w-48 h-48 bg-ford-500/30 rounded-full blur-[40px]"></div>
+                    
+                    <div class="flex justify-between items-center relative z-10">
+                        <div>
+                            <p class="text-xs text-blue-200 font-medium mb-1 tracking-wider uppercase opacity-80">សួស្តី,</p>
+                            <h2 id="cust-name-display" class="text-2xl font-black text-white tracking-wide">អតិថិជន</h2>
+                        </div>
+                        <div class="w-14 h-14 rounded-full border-2 border-ford-gold/50 overflow-hidden bg-ford-800 shadow-gold-glow flex items-center justify-center text-xl font-black text-ford-gold relative group">
+                            <span id="cust-avatar-display">C</span>
+                        </div>
+                    </div>
+                </header>
+
+                <main class="flex-1 overflow-y-auto no-scrollbar pb-32 -mt-6 relative z-30 px-5">
+                    
+                    <!-- Digital Car Card -->
+                    <div class="vip-card-bg rounded-3xl p-5 text-white mb-8 shadow-xl">
+                        <div class="flex justify-between items-center mb-6">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-brands fa-ford text-4xl text-white"></i>
+                                <span class="text-[10px] font-bold tracking-widest uppercase bg-white/10 px-2 py-1 rounded">My Vehicle</span>
+                            </div>
+                            <i class="fa-solid fa-car-side text-3xl opacity-20"></i>
+                        </div>
+                        <div>
+                            <h3 id="cust-car-display" class="text-2xl font-black uppercase tracking-wide mb-1 text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">Model</h3>
+                            <div class="inline-block bg-ford-gold text-ford-900 text-sm font-black px-3 py-1 rounded-lg mt-1 tracking-widest shadow-sm" id="cust-plate-display">PLATE</div>
+                        </div>
+                    </div>
+
+                    <!-- Action Grid -->
+                    <div class="mb-8">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-black text-slate-800 text-lg">សេវាកម្មរហ័ស</h3>
+                        </div>
+                        <div class="grid grid-cols-4 gap-4">
+                            <button onclick="openBooking('ប្តូរប្រេងម៉ាស៊ីន')" class="flex flex-col items-center gap-2 outline-none group">
+                                <div class="w-full aspect-square bg-white rounded-2xl shadow-sm border border-slate-200 text-ford-600 text-2xl flex items-center justify-center group-active:bg-ford-50 group-active:scale-95 transition-all">
+                                    <i class="fa-solid fa-oil-can"></i>
+                                </div>
+                                <span class="text-[11px] font-bold text-slate-600 text-center">ប្តូរប្រេង</span>
+                            </button>
+                            <button onclick="openBooking('ជួសជុលទូទៅ')" class="flex flex-col items-center gap-2 outline-none group">
+                                <div class="w-full aspect-square bg-white rounded-2xl shadow-sm border border-slate-200 text-ford-600 text-2xl flex items-center justify-center group-active:bg-ford-50 group-active:scale-95 transition-all">
+                                    <i class="fa-solid fa-screwdriver-wrench"></i>
+                                </div>
+                                <span class="text-[11px] font-bold text-slate-600 text-center">ជួសជុល</span>
+                            </button>
+                            <button onclick="openBooking('ឆែកប្រព័ន្ធភ្លើង')" class="flex flex-col items-center gap-2 outline-none group">
+                                <div class="w-full aspect-square bg-white rounded-2xl shadow-sm border border-slate-200 text-ford-600 text-2xl flex items-center justify-center group-active:bg-ford-50 group-active:scale-95 transition-all">
+                                    <i class="fa-solid fa-car-battery"></i>
+                                </div>
+                                <span class="text-[11px] font-bold text-slate-600 text-center">ប្រព័ន្ធភ្លើង</span>
+                            </button>
+                            <button onclick="showToast('ភ្នាក់ងារសង្គ្រោះកំពុងចេញដំណើរ... 📞 012333444', 'info')" class="flex flex-col items-center gap-2 outline-none group">
+                                <div class="w-full aspect-square bg-red-50 rounded-2xl shadow-sm border border-red-100 text-red-500 text-2xl flex items-center justify-center group-active:bg-red-500 group-active:text-white group-active:scale-95 transition-all">
+                                    <i class="fa-solid fa-truck-pickup"></i>
+                                </div>
+                                <span class="text-[11px] font-bold text-red-600 text-center">សង្គ្រោះ</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Products Shop -->
+                    <div class="mb-8">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-black text-slate-800 text-lg">គ្រឿងបន្លាស់ & សម្អាង</h3>
+                            <span class="text-[10px] bg-ford-900 text-white px-2.5 py-1 rounded-full font-bold shadow-sm">Ford Genuine</span>
+                        </div>
+                        <div class="flex gap-4 overflow-x-auto no-scrollbar pb-2 -mx-5 px-5" id="product-list">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Knowledge Base -->
+                    <div class="pb-6">
+                        <h3 class="font-black text-slate-800 text-lg mb-4">គន្លឹះថែទាំយានយន្ត</h3>
+                        <div id="knowledge-list" class="space-y-4">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                </main>
+            </div>
+
+            <!-- Customer Tab: BOOKINGS -->
+            <div id="cust-tab-bookings" class="cust-tab-content h-full hidden flex-col bg-slate-50 relative overflow-hidden">
+                <div class="bg-white pt-20 pb-4 px-6 border-b border-slate-200 shrink-0 shadow-sm z-10 flex justify-between items-end">
+                    <h2 class="text-2xl font-black text-slate-800">ប្រវត្តិសេវាកម្ម</h2>
+                    <span class="w-10 h-10 bg-ford-50 rounded-full flex items-center justify-center text-ford-600"><i class="fa-solid fa-clock-rotate-left text-lg"></i></span>
+                </div>
+                <div class="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar" id="customer-bookings-list">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+
+            <!-- Customer Tab: PROFILE -->
+            <div id="cust-tab-profile" class="cust-tab-content h-full hidden flex-col bg-slate-50 relative overflow-y-auto no-scrollbar pb-32">
+                <div class="bg-ford-900 pt-20 pb-24 px-6 relative rounded-b-[40px] shadow-lg">
+                    <h2 class="text-white text-2xl font-black text-center">គណនីរបស់អ្នក</h2>
+                </div>
+                
+                <div class="px-5 -mt-16 relative z-10">
+                    <div class="bg-white rounded-3xl p-6 shadow-lg border border-slate-100 mb-6 flex flex-col items-center">
+                        <div class="w-20 h-20 bg-ford-100 text-ford-600 rounded-full flex items-center justify-center text-3xl font-black mb-3 border-4 border-white shadow-sm" id="profile-avatar">A</div>
+                        <h3 id="profile-name" class="text-xl font-black text-slate-800">Name</h3>
+                        <p id="profile-phone" class="text-sm font-bold text-slate-500 mt-1">Phone</p>
+                        <div class="flex gap-2 mt-4">
+                            <span class="bg-ford-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">VIP Member</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden mb-6">
+                        <button class="w-full flex items-center justify-between p-5 border-b border-slate-50 hover:bg-slate-50 transition active:bg-slate-100">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center"><i class="fa-solid fa-user-pen"></i></div>
+                                <span class="font-bold text-sm text-slate-700">កែប្រែព័ត៌មាន</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-slate-300 text-xs"></i>
+                        </button>
+                        <button class="w-full flex items-center justify-between p-5 border-b border-slate-50 hover:bg-slate-50 transition active:bg-slate-100">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                                <span class="font-bold text-sm text-slate-700">វិក្កយបត្រ</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-slate-300 text-xs"></i>
+                        </button>
+                        <button onclick="handleLogout()" class="w-full flex items-center justify-between p-5 hover:bg-red-50 transition active:bg-red-100 group">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition"><i class="fa-solid fa-arrow-right-from-bracket"></i></div>
+                                <span class="font-bold text-sm text-red-600">ចាកចេញពីគណនី (Logout)</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Floating Bottom Navigation -->
+            <nav class="absolute bottom-6 left-6 right-6 glass-panel px-2 py-2 flex justify-between items-center z-40 rounded-3xl shadow-[0_10px_40px_rgba(0,19,47,0.1)] border border-white/60">
+                <button onclick="switchCustTab('home')" class="cust-nav-btn active flex flex-col items-center gap-1 p-2 text-slate-400 w-16 transition-colors rounded-2xl hover:bg-slate-50">
+                    <i class="fa-solid fa-house text-xl mb-0.5"></i>
+                    <span class="text-[10px] font-bold">ទំព័រដើម</span>
+                </button>
+                <button onclick="switchCustTab('bookings')" class="cust-nav-btn flex flex-col items-center gap-1 p-2 text-slate-400 w-16 transition-colors rounded-2xl hover:bg-slate-50">
+                    <i class="fa-solid fa-list-check text-xl mb-0.5"></i>
+                    <span class="text-[10px] font-bold">ប្រវត្តិ</span>
+                </button>
+                
+                <!-- Central FAB: Booking -->
+                <div class="relative -top-6 shrink-0">
+                    <button onclick="openBooking('សេវាកម្មទូទៅ')" class="w-16 h-16 bg-gradient-to-br from-ford-500 to-ford-700 rounded-full shadow-[0_8px_20px_rgba(0,82,204,0.4)] text-white flex flex-col items-center justify-center border-4 border-[#f8fafc] hover:scale-105 active:scale-95 transition-all outline-none">
+                        <i class="fa-solid fa-plus text-2xl"></i>
+                    </button>
+                </div>
+                
+                <button onclick="showToast('មុខងារសារកំពុងអភិវឌ្ឍ', 'info')" class="cust-nav-btn flex flex-col items-center gap-1 p-2 text-slate-400 w-16 transition-colors rounded-2xl hover:bg-slate-50">
+                    <i class="fa-regular fa-comment-dots text-xl mb-0.5"></i>
+                    <span class="text-[10px] font-bold">សារ</span>
+                </button>
+                <button onclick="switchCustTab('profile')" class="cust-nav-btn flex flex-col items-center gap-1 p-2 text-slate-400 w-16 transition-colors rounded-2xl hover:bg-slate-50">
+                    <i class="fa-regular fa-user text-xl mb-0.5"></i>
+                    <span class="text-[10px] font-bold">គណនី</span>
+                </button>
+            </nav>
+
+            <!-- Booking Modal -->
+            <div id="booking-modal" class="modal-overlay fixed inset-0 flex items-end justify-center">
+                <div class="modal-content w-full max-w-[480px] bg-white rounded-t-[2.5rem] p-8 shadow-[0_-10px_50px_rgba(0,19,47,0.2)]">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-2xl font-black text-slate-800">កក់សេវាកម្ម</h3>
+                        <button onclick="closeModal('booking-modal')" class="w-10 h-10 bg-slate-100 rounded-full text-slate-500 flex items-center justify-center hover:bg-slate-200 active:scale-90 transition"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <form onsubmit="submitBooking(event)" class="space-y-5">
+                        <div>
+                            <label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">ប្រភេទសេវាកម្ម</label>
+                            <input type="text" id="b-service" readonly class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-4 text-sm font-black text-ford-700 outline-none">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">ថ្ងៃខែឆ្នាំ</label>
+                                <input type="date" id="b-date" required class="w-full bg-white border border-slate-200 rounded-2xl px-4 py-4 text-sm font-bold outline-none focus:border-ford-500 focus:ring-4 focus:ring-ford-100 transition-all">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">ម៉ោងជួប</label>
+                                <input type="time" id="b-time" required class="w-full bg-white border border-slate-200 rounded-2xl px-4 py-4 text-sm font-bold outline-none focus:border-ford-500 focus:ring-4 focus:ring-ford-100 transition-all">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">បញ្ហាបន្ថែម (បើមាន)</label>
+                            <textarea id="b-note" rows="2" class="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:border-ford-500 focus:ring-4 focus:ring-ford-100 transition-all placeholder-slate-300" placeholder="រៀបរាប់បញ្ហាយានយន្តរបស់អ្នក..."></textarea>
+                        </div>
+                        <button type="submit" class="w-full bg-ford-900 hover:bg-ford-800 text-white font-bold py-4 rounded-2xl shadow-lg transition-all mt-4 active:scale-95 text-lg flex items-center justify-center gap-2">
+                            <i class="fa-regular fa-calendar-check"></i> បញ្ជាក់ការកក់
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Cart Modal -->
+            <div id="cart-modal" class="modal-overlay fixed inset-0 flex items-end justify-center">
+                <div class="modal-content w-full max-w-[480px] bg-white h-[85%] rounded-t-[2.5rem] shadow-[0_-10px_50px_rgba(0,19,47,0.2)] flex flex-col overflow-hidden">
+                    <div class="p-6 border-b border-slate-100 flex justify-between items-center shrink-0 bg-white">
+                        <h3 class="text-2xl font-black text-slate-800">កន្ត្រកទំនិញ <span id="cart-count" class="text-ford-500 text-lg ml-1">(0)</span></h3>
+                        <button onclick="closeModal('cart-modal')" class="w-10 h-10 bg-slate-100 rounded-full text-slate-500 flex items-center justify-center hover:bg-slate-200 active:scale-90 transition"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-5 bg-slate-50/50" id="cart-items">
+                        <!-- Populated via JS -->
+                    </div>
+                    <div class="p-6 border-t border-slate-100 bg-white shrink-0">
+                        <div class="flex justify-between mb-5 font-bold text-lg items-end">
+                            <span class="text-slate-400 text-sm font-black uppercase tracking-wider">សរុបប្រាក់ (Total)</span>
+                            <span class="text-ford-700 text-3xl font-black" id="cart-total">$0.00</span>
+                        </div>
+                        <button onclick="checkoutCart()" class="w-full bg-gradient-to-r from-ford-500 to-ford-600 hover:from-ford-600 hover:to-ford-700 text-white font-black py-4 rounded-2xl shadow-neon active:scale-[0.98] transition-all flex justify-center items-center gap-3 text-lg">
+                            <i class="fa-solid fa-money-check-dollar"></i> បង់ប្រាក់ឥឡូវនេះ
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="admin-web" class="view-section h-full w-full bg-[#f4f7fb] flex relative font-sans">
+        
+        <!-- Admin Sidebar -->
+        <aside class="w-72 bg-ford-900 text-white flex flex-col h-full shrink-0 shadow-2xl z-20 relative overflow-hidden">
+            <!-- Sidebar BG Effect -->
+            <div class="absolute w-full h-[300px] bg-gradient-to-b from-ford-600/30 to-transparent top-0 left-0 pointer-events-none"></div>
+            
+            <div class="p-6 border-b border-white/10 flex items-center justify-between bg-black/10 relative z-10">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-ford-gold rounded-xl flex items-center justify-center text-ford-900 text-2xl shadow-gold-glow">
+                        <i class="fa-solid fa-car-shield"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-black tracking-wide leading-tight text-white">FORD<span class="text-ford-gold">ADMIN</span></h2>
+                        <p class="text-[9px] text-blue-200 uppercase tracking-widest font-bold mt-0.5">Control Center</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 py-8 flex-1 overflow-y-auto space-y-1 relative z-10">
+                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 ml-3">ម៉ឺនុយគោល</p>
+                <nav class="space-y-2">
+                    <button onclick="switchAdminTab('dashboard', this)" class="admin-tab-btn active w-full flex items-center gap-3 px-4 py-4 bg-ford-600 rounded-2xl text-sm font-bold text-white shadow-lg transition-all">
+                        <i class="fa-solid fa-chart-pie w-6 text-center text-white/90 text-lg"></i> ផ្ទាំងសង្ខេប
+                    </button>
+                    <button onclick="switchAdminTab('bookings', this)" class="admin-tab-btn w-full flex items-center gap-3 px-4 py-4 text-blue-200 hover:bg-white/10 hover:text-white rounded-2xl text-sm font-bold transition-all relative">
+                        <i class="fa-solid fa-calendar-check w-6 text-center text-white/60 text-lg"></i> ការកក់ម៉ោង 
+                        <span id="admin-booking-badge" class="absolute right-3 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold shadow-sm hidden">0</span>
+                    </button>
+                    <button onclick="switchAdminTab('inventory', this)" class="admin-tab-btn w-full flex items-center gap-3 px-4 py-4 text-blue-200 hover:bg-white/10 hover:text-white rounded-2xl text-sm font-bold transition-all">
+                        <i class="fa-solid fa-boxes-stacked w-6 text-center text-white/60 text-lg"></i> ស្តុកទំនិញ
+                    </button>
+                    <button onclick="switchAdminTab('crm', this)" class="admin-tab-btn w-full flex items-center gap-3 px-4 py-4 text-blue-200 hover:bg-white/10 hover:text-white rounded-2xl text-sm font-bold transition-all">
+                        <i class="fa-solid fa-users w-6 text-center text-white/60 text-lg"></i> អតិថិជន
+                    </button>
+                </nav>
+            </div>
+            
+            <div class="p-5 border-t border-white/10 bg-black/20 flex justify-between items-center relative z-10">
+                <div class="flex items-center gap-3">
+                    <div id="admin-avatar" class="w-12 h-12 rounded-xl bg-gradient-to-br from-ford-400 to-ford-600 flex items-center justify-center font-black text-xl border border-white/20 shadow-inner">A</div>
+                    <div>
+                        <p id="admin-name" class="text-sm font-bold text-white">Admin</p>
+                        <p class="text-[10px] text-green-400 flex items-center gap-1.5 font-bold mt-1"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span> System Online</p>
+                    </div>
+                </div>
+                <button onclick="handleLogout()" class="w-10 h-10 rounded-xl bg-white/5 hover:bg-red-500 hover:text-white text-slate-300 flex items-center justify-center transition-colors shadow-sm" title="ចាកចេញ"><i class="fa-solid fa-power-off"></i></button>
+            </div>
+        </aside>
+
+        <!-- Admin Main Workspace -->
+        <main class="flex-1 flex flex-col h-full overflow-hidden bg-[#f4f7fb]">
+            <!-- Topbar -->
+            <header class="bg-white/80 backdrop-blur-md px-10 py-6 flex justify-between items-center shadow-sm z-10 border-b border-slate-200/50">
+                <div>
+                    <h1 class="text-2xl font-black text-slate-800" id="admin-page-title">ផ្ទាំងសង្ខេប (Dashboard)</h1>
+                    <p class="text-sm text-slate-500 mt-1 font-medium border-l-2 border-ford-400 pl-2">Local Simulated Database System</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button onclick="resetDatabase()" class="text-xs bg-red-50 text-red-500 hover:bg-red-500 hover:text-white px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2"><i class="fa-solid fa-rotate-left"></i> Reset System</button>
+                    <div class="bg-slate-100 px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm text-slate-700 font-bold border border-slate-200">
+                        <i class="fa-regular fa-clock text-ford-500"></i> <span id="current-time">00:00</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Admin Content Area -->
+            <div class="flex-1 overflow-y-auto p-10 no-scrollbar relative">
+                
+                <!-- Admin Tab: DASHBOARD -->
+                <div id="admin-tab-dashboard" class="admin-tab-content block">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        <!-- Stat Cards -->
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col relative overflow-hidden group hover:-translate-y-1 transition-transform">
+                            <div class="absolute -right-6 -top-6 w-32 h-32 bg-ford-50 rounded-full opacity-50 group-hover:scale-125 transition-transform duration-500 pointer-events-none"></div>
+                            <div class="flex justify-between items-start mb-4 relative z-10">
+                                <div class="w-14 h-14 rounded-2xl bg-blue-50 text-ford-600 flex items-center justify-center text-2xl shadow-sm"><i class="fa-solid fa-list-check"></i></div>
+                            </div>
+                            <div class="relative z-10">
+                                <p class="text-xs text-slate-400 font-black uppercase tracking-wider mb-1">ការកក់សរុប</p>
+                                <h3 class="text-4xl font-black text-slate-800" id="stat-total-bookings">0</h3>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col relative overflow-hidden group hover:-translate-y-1 transition-transform">
+                            <div class="absolute -right-6 -top-6 w-32 h-32 bg-orange-50 rounded-full opacity-50 group-hover:scale-125 transition-transform duration-500 pointer-events-none"></div>
+                            <div class="flex justify-between items-start mb-4 relative z-10">
+                                <div class="w-14 h-14 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center text-2xl shadow-sm"><i class="fa-solid fa-hourglass-half"></i></div>
+                            </div>
+                            <div class="relative z-10">
+                                <p class="text-xs text-slate-400 font-black uppercase tracking-wider mb-1">រង់ចាំអនុម័ត</p>
+                                <h3 class="text-4xl font-black text-slate-800" id="stat-pending-bookings">0</h3>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col relative overflow-hidden group hover:-translate-y-1 transition-transform">
+                            <div class="absolute -right-6 -top-6 w-32 h-32 bg-green-50 rounded-full opacity-50 group-hover:scale-125 transition-transform duration-500 pointer-events-none"></div>
+                            <div class="flex justify-between items-start mb-4 relative z-10">
+                                <div class="w-14 h-14 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center text-2xl shadow-sm"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                            </div>
+                            <div class="relative z-10">
+                                <p class="text-xs text-slate-400 font-black uppercase tracking-wider mb-1">ចំណូល (Sales)</p>
+                                <h3 class="text-4xl font-black text-slate-800" id="stat-revenue">$0<span class="text-lg text-slate-400 font-normal">.00</span></h3>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col relative overflow-hidden group hover:-translate-y-1 transition-transform">
+                            <div class="absolute -right-6 -top-6 w-32 h-32 bg-purple-50 rounded-full opacity-50 group-hover:scale-125 transition-transform duration-500 pointer-events-none"></div>
+                            <div class="flex justify-between items-start mb-4 relative z-10">
+                                <div class="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-2xl shadow-sm"><i class="fa-solid fa-users"></i></div>
+                            </div>
+                            <div class="relative z-10">
+                                <p class="text-xs text-slate-400 font-black uppercase tracking-wider mb-1">អតិថិជនសរុប</p>
+                                <h3 class="text-4xl font-black text-slate-800" id="stat-customers">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin Tab: BOOKINGS -->
+                <div id="admin-tab-bookings" class="admin-tab-content hidden">
+                    <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 class="font-black text-slate-800 flex items-center gap-3 text-xl">
+                                <i class="fa-solid fa-clipboard-list text-ford-500"></i> ការកក់ទាំងអស់
+                            </h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse min-w-[900px]">
+                                <thead>
+                                    <tr class="text-xs font-black text-slate-400 uppercase tracking-wider border-b border-slate-100 bg-white">
+                                        <th class="py-5 px-8">អតិថិជន</th>
+                                        <th class="py-5 px-8">យានយន្ត</th>
+                                        <th class="py-5 px-8">ប្រភេទសេវាកម្ម</th>
+                                        <th class="py-5 px-8">កាលបរិច្ឆេទ</th>
+                                        <th class="py-5 px-8">ស្ថានភាព</th>
+                                        <th class="py-5 px-8 text-right">សកម្មភាព</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-sm text-slate-700 bg-white divide-y divide-slate-50" id="admin-booking-table-body">
+                                    <!-- Populated via JS -->
+                                </tbody>
+                            </table>
+                            <div id="admin-booking-empty" class="hidden flex-col items-center justify-center py-24 text-slate-400 bg-slate-50/30">
+                                <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm border border-slate-100"><i class="fa-solid fa-inbox text-4xl text-slate-300"></i></div>
+                                <p class="font-bold text-lg">មិនទាន់មានការកក់នៅឡើយទេ</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin Tab: INVENTORY -->
+                <div id="admin-tab-inventory" class="admin-tab-content hidden">
+                    <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden mb-6">
+                        <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 class="font-black text-slate-800 flex items-center gap-3 text-xl">
+                                <i class="fa-solid fa-boxes-stacked text-ford-500"></i> បញ្ជីទំនិញ & គ្រឿងបន្លាស់
+                            </h3>
+                            <button onclick="document.getElementById('add-product-form').classList.toggle('hidden')" class="bg-ford-900 hover:bg-ford-800 text-white text-sm font-bold py-2.5 px-5 rounded-xl transition shadow-sm flex items-center gap-2">
+                                <i class="fa-solid fa-plus"></i> បន្ថែមថ្មី
+                            </button>
+                        </div>
+                        
+                        <!-- Add Product Form -->
+                        <div id="add-product-form" class="hidden p-8 bg-slate-50/80 border-b border-slate-200">
+                            <form onsubmit="handleAddProduct(event)" class="flex gap-4 items-end max-w-3xl">
+                                <div class="flex-1">
+                                    <label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">ឈ្មោះទំនិញ</label>
+                                    <input type="text" id="ap-name" required class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-ford-500 shadow-sm bg-white">
+                                </div>
+                                <div class="w-40">
+                                    <label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">តម្លៃ ($)</label>
+                                    <input type="number" step="0.01" id="ap-price" required class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-ford-500 shadow-sm bg-white">
+                                </div>
+                                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition shadow-sm">រក្សាទុក</button>
+                            </form>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse min-w-[700px]">
+                                <thead>
+                                    <tr class="text-xs font-black text-slate-400 uppercase tracking-wider border-b border-slate-100 bg-white">
+                                        <th class="py-5 px-8">រូបភាព / ឈ្មោះទំនិញ</th>
+                                        <th class="py-5 px-8">តម្លៃលក់</th>
+                                        <th class="py-5 px-8">ស្ថានភាពស្តុក</th>
+                                        <th class="py-5 px-8 text-right">លុប</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-sm text-slate-700 bg-white divide-y divide-slate-50" id="admin-inventory-table-body">
+                                    <!-- Populated via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin Tab: CRM -->
+                <div id="admin-tab-crm" class="admin-tab-content hidden">
+                    <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 class="font-black text-slate-800 flex items-center gap-3 text-xl">
+                                <i class="fa-solid fa-users text-ford-500"></i> បញ្ជីអតិថិជន
+                            </h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse min-w-[800px]">
+                                <thead>
+                                    <tr class="text-xs font-black text-slate-400 uppercase tracking-wider border-b border-slate-100 bg-white">
+                                        <th class="py-5 px-8">គណនី / ទំនាក់ទំនង</th>
+                                        <th class="py-5 px-8">យានយន្ត</th>
+                                        <th class="py-5 px-8">ប្រភេទសមាជិក</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-sm text-slate-700 bg-white divide-y divide-slate-50" id="admin-crm-table-body">
+                                    <!-- Populated via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- 1. LOCAL STORAGE DATABASE (PERSISTENCE) ---
+        const DB_KEY = 'fordGarage_PremiumDB_v3';
+        
+        const initialDB = {
+            users: [
+                { id: 1, phone: "012345678", pass: "123", name: "លោក ម៉េង ហួរ", car: "Ranger Raptor 2023", plate: "2BP-1234", role: "customer", avatar: "MH" },
+                { id: 2, phone: "099999999", pass: "admin", name: "មេជាង ហ្វត", car: "N/A", plate: "N/A", role: "admin", avatar: "A" }
+            ],
+            products: [
+                { id: 1, name: "ស្បែកហ្វ្រាំង Ranger (Genuine)", price: 85.00, img: "Brake+Pad", stock: true },
+                { id: 2, name: "តម្រងប្រេង Motorcraft", price: 18.50, img: "Oil+Filter", stock: true },
+                { id: 3, name: "ទឹកស្មាតត្រជាក់ (Orange)", price: 25.00, img: "Coolant", stock: true },
+                { id: 4, name: "ផ្លិតទឹកសងខាង (Wiper Blades)", price: 40.00, img: "Wipers", stock: false }
+            ],
+            knowledge: [
+                { title: "ពេលណាគួរផ្លាស់ប្តូរតម្រងខ្យល់ (Air Filter)?", desc: "ការទុកតម្រងខ្យល់កខ្វក់យូរធ្វើឲ្យម៉ាស៊ីនស៊ីសាំង និងថយចុះកម្លាំងអូសទាញ។ គួរពិនិត្យរាល់ 10,000km។", img: "Engine+Care", tag: "ថែទាំ" },
+                { title: "អត្ថប្រយោជន៍នៃការប្រើប្រេងម៉ាស៊ីនសុទ្ធ Motorcraft", desc: "ជួយការពារការពាក់សឹកម៉ាស៊ីនបានល្អបំផុត និងពន្យារអាយុកាលរថយន្ត Ford របស់អ្នក។", img: "Motorcraft", tag: "ចំណេះដឹង" }
+            ],
+            bookings: [],
+            revenue: 0
+        };
+
+        let db = loadDB();
+        let currentUser = null;
+        let sessionCart = []; // Cart doesn't need strict long-term persistence, resets on logout
+
+        function loadDB() {
+            const saved = localStorage.getItem(DB_KEY);
+            return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(initialDB));
+        }
+
+        function saveDB() {
+            localStorage.setItem(DB_KEY, JSON.stringify(db));
+        }
+
+        function resetDatabase() {
+            if(confirm("តើអ្នកពិតជាចង់លុបទិន្នន័យទាំងអស់ត្រឡប់ទៅដើមវិញមែនទេ? (ទិន្នន័យកក់ នឹងត្រូវលុប)")) {
+                localStorage.removeItem(DB_KEY);
+                localStorage.removeItem('ford_active_session');
+                window.location.reload();
+            }
+        }
+
+        // --- 2. CORE UTILITY & ROUTING ---
+        window.addEventListener('load', () => {
+            // Hide Loader smoothly
+            setTimeout(() => {
+                const loader = document.getElementById('loading-overlay');
+                loader.style.opacity = '0';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    initApp(); // Start App Logic after loader is gone
+                }, 600);
+            }, 1000);
+
+            // Clock
+            setInterval(() => {
+                const el = document.getElementById('current-time');
+                if(el) el.innerText = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            }, 1000);
+        });
+
+        function initApp() {
+            // Check for saved session
+            const savedSessionId = localStorage.getItem('ford_active_session');
+            if (savedSessionId) {
+                const user = db.users.find(u => u.id === parseInt(savedSessionId));
+                if (user) {
+                    currentUser = user;
+                    routeUser();
+                    return;
+                }
+            }
+            // No valid session, show auth
+            switchView('auth-view');
+        }
+
+        function switchView(viewId) {
+            const views = document.querySelectorAll('.view-section');
+            views.forEach(v => {
+                v.classList.remove('active');
+            });
+            // Force reflow
+            void document.body.offsetWidth;
+            const target = document.getElementById(viewId);
+            if(target) {
+                target.classList.add('active');
+            }
+        }
+
+        function openModal(modalId) { document.getElementById(modalId).classList.add('show'); }
+        function closeModal(modalId) { document.getElementById(modalId).classList.remove('show'); }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let icon = type === 'success' ? '<i class="fa-solid fa-circle-check text-green-500 text-xl drop-shadow-sm"></i>' 
+                     : type === 'error' ? '<i class="fa-solid fa-circle-exclamation text-red-500 text-xl drop-shadow-sm"></i>'
+                     : '<i class="fa-solid fa-circle-info text-blue-500 text-xl drop-shadow-sm"></i>';
+            
+            toast.className = `toast glass-panel p-4 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.1)] border-l-[6px] flex items-center gap-3 text-sm font-bold text-slate-800 ${type === 'success' ? 'border-green-500' : type === 'error' ? 'border-red-500' : 'border-blue-500'}`;
+            toast.innerHTML = `${icon} <span>${message}</span>`;
+            
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }
+
+        // --- 3. AUTHENTICATION LOGIC ---
+        function toggleAuthForm() {
+            const login = document.getElementById('login-form-container');
+            const reg = document.getElementById('register-form-container');
+            if(login.classList.contains('hidden')) {
+                reg.classList.add('hidden');
+                login.classList.remove('hidden');
+            } else {
+                login.classList.add('hidden');
+                reg.classList.remove('hidden');
+            }
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const phone = document.getElementById('login-phone').value;
+            const pass = document.getElementById('login-pass').value;
+
+            const user = db.users.find(u => u.phone === phone && u.pass === pass);
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('ford_active_session', user.id); // Save Session
+                showToast(`ស្វាគមន៍ការត្រលប់មកវិញ, ${user.name}!`, 'success');
+                e.target.reset();
+                routeUser();
+            } else {
+                showToast('លេខទូរស័ព្ទ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវទេ!', 'error');
+            }
+        }
+
+        function handleRegister(e) {
+            e.preventDefault();
+            const name = document.getElementById('reg-name').value;
+            const phone = document.getElementById('reg-phone').value;
+            const pass = document.getElementById('reg-pass').value;
+            const car = document.getElementById('reg-car').value;
+            const plate = document.getElementById('reg-plate').value;
+
+            if (db.users.find(u => u.phone === phone)) {
+                showToast('លេខទូរស័ព្ទនេះមានអ្នកប្រើប្រាស់រួចហើយ!', 'error');
+                return;
+            }
+
+            const getInitials = (n) => {
+                let parts = n.split(' ');
+                if(parts.length > 1) return (parts[0].charAt(0) + parts[parts.length-1].charAt(0)).toUpperCase();
+                return n.substring(0, 2).toUpperCase();
+            }
+
+            const newUser = { id: Date.now(), phone, pass, name, car, plate, role: "customer", avatar: getInitials(name) };
+            db.users.push(newUser);
+            saveDB(); 
+            
+            currentUser = newUser;
+            localStorage.setItem('ford_active_session', newUser.id);
+            showToast('បង្កើតគណនីជោគជ័យ!', 'success');
+            e.target.reset();
+            routeUser();
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            sessionCart = [];
+            localStorage.removeItem('ford_active_session');
+            showToast('បានចាកចេញពីគណនី', 'info');
+            switchView('auth-view');
+            // reset forms
+            document.getElementById('login-form-container').classList.remove('hidden');
+            document.getElementById('register-form-container').classList.add('hidden');
+        }
+
+        function routeUser() {
+            if (currentUser.role === 'admin') {
+                initAdminApp();
+                switchView('admin-web');
+            } else {
+                initCustomerApp();
+                switchView('customer-web');
+                switchCustTab('home'); 
+            }
+        }
+
+        // --- 4. CUSTOMER APP LOGIC ---
+        function switchCustTab(tabId) {
+            document.querySelectorAll('.cust-tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(`cust-tab-${tabId}`).classList.remove('hidden');
+
+            document.querySelectorAll('.cust-nav-btn').forEach(b => {
+                b.classList.remove('text-ford-700', 'bg-slate-100');
+                b.classList.add('text-slate-400');
+            });
+            const activeBtn = Array.from(document.querySelectorAll('.cust-nav-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+            if(activeBtn) {
+                activeBtn.classList.add('text-ford-700', 'bg-slate-100');
+                activeBtn.classList.remove('text-slate-400');
+            }
+        }
+
+        function initCustomerApp() {
+            // Home / Header
+            document.getElementById('cust-name-display').innerText = currentUser.name;
+            document.getElementById('cust-avatar-display').innerText = currentUser.avatar;
+            document.getElementById('cust-car-display').innerText = currentUser.car;
+            document.getElementById('cust-plate-display').innerText = currentUser.plate;
+
+            // Profile Tab
+            document.getElementById('profile-name').innerText = currentUser.name;
+            document.getElementById('profile-phone').innerText = currentUser.phone;
+            document.getElementById('profile-avatar').innerText = currentUser.avatar;
+
+            renderProducts();
+            renderKnowledge();
+            renderCustomerBookings();
+            updateCartUI();
+        }
+
+        function renderProducts() {
+            const list = document.getElementById('product-list');
+            list.innerHTML = db.products.map(p => `
+                <div class="bg-white min-w-[170px] rounded-3xl p-3 shadow-sm border border-slate-100 flex flex-col relative">
+                    <div class="h-28 bg-[#f4f7fb] rounded-2xl mb-3 flex items-center justify-center overflow-hidden p-2 relative">
+                        <img src="https://placehold.co/200x200/f4f7fb/003a88?text=${p.img}" alt="${p.name}" class="w-full h-full object-contain mix-blend-multiply hover:scale-110 transition-transform duration-500">
+                        ${p.stock ? '' : '<div class="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center"><span class="bg-red-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">Out of Stock</span></div>'}
+                    </div>
+                    <h4 class="text-xs font-bold text-slate-800 line-clamp-2 leading-tight flex-1 mb-1">${p.name}</h4>
+                    <p class="text-lg text-ford-600 font-black mb-3">$${p.price.toFixed(2)}</p>
+                    <button onclick="addToCart(${p.id})" class="w-full ${p.stock ? 'bg-ford-900 hover:bg-ford-800 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'} text-xs font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm" ${!p.stock ? 'disabled' : ''}>
+                        <i class="fa-solid fa-cart-plus"></i> ទិញ
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function renderKnowledge() {
+            const list = document.getElementById('knowledge-list');
+            list.innerHTML = db.knowledge.map(k => `
+                <div class="bg-white rounded-3xl overflow-hidden shadow-sm border border-slate-100 flex gap-4 p-3 hover:shadow-md transition">
+                    <div class="w-32 h-24 bg-ford-900 rounded-2xl relative overflow-hidden shrink-0">
+                        <img src="https://placehold.co/300x200/001c43/ffffff?text=${k.img}" class="w-full h-full object-cover opacity-60">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white shadow-lg"><i class="fa-solid fa-play ml-0.5 text-xs"></i></div>
+                        </div>
+                    </div>
+                    <div class="flex-1 py-1">
+                        <span class="text-ford-600 text-[10px] font-black uppercase tracking-wider mb-1 block">${k.tag}</span>
+                        <h4 class="text-sm font-bold text-slate-800 mb-1 leading-snug line-clamp-2">${k.title}</h4>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openBooking(serviceName) {
+            document.getElementById('b-service').value = serviceName;
+            document.getElementById('b-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('b-time').value = "09:00";
+            openModal('booking-modal');
+        }
+
+        function submitBooking(e) {
+            e.preventDefault();
+            const newBooking = {
+                id: Date.now(), userId: currentUser.id, 
+                service: document.getElementById('b-service').value, 
+                date: document.getElementById('b-date').value, 
+                time: document.getElementById('b-time').value, 
+                note: document.getElementById('b-note').value, 
+                status: "pending", createdAt: new Date()
+            };
+
+            db.bookings.unshift(newBooking);
+            saveDB(); 
+
+            closeModal('booking-modal');
+            renderCustomerBookings();
+            showToast('ការកក់ជោគជ័យ! សូមរង់ចាំការយល់ព្រមពីយានដ្ឋាន។', 'success');
+            setTimeout(() => { switchCustTab('bookings'); }, 400);
+        }
+
+        function renderCustomerBookings() {
+            const list = document.getElementById('customer-bookings-list');
+            const myBookings = db.bookings.filter(b => b.userId === currentUser.id);
+
+            if(myBookings.length === 0) {
+                list.innerHTML = '<div class="flex flex-col items-center justify-center h-48 text-slate-400"><i class="fa-solid fa-calendar-xmark text-5xl mb-4 opacity-20"></i><p class="text-sm font-bold">មិនទាន់មានប្រវត្តិទេ</p></div>';
+                return;
+            }
+
+            list.innerHTML = myBookings.map(b => {
+                let statusConfig = {
+                    pending: { color: 'orange', text: 'កំពុងរង់ចាំ', icon: 'fa-clock' },
+                    approved: { color: 'green', text: 'បានយល់ព្រម', icon: 'fa-check' },
+                    rejected: { color: 'red', text: 'បានបដិសេធ', icon: 'fa-xmark' }
+                }[b.status];
+
+                return `
+                <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-2 h-full bg-${statusConfig.color}-500"></div>
+                    <div class="flex justify-between items-start mb-3 pl-3">
+                        <h4 class="font-black text-slate-800 text-base">${b.service}</h4>
+                        <span class="bg-${statusConfig.color}-50 text-${statusConfig.color}-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid ${statusConfig.icon}"></i> ${statusConfig.text}
+                        </span>
+                    </div>
+                    <div class="pl-3">
+                        <div class="flex items-center gap-2 text-xs font-bold text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                            <i class="fa-regular fa-calendar text-ford-500 text-lg"></i> 
+                            ${b.date} <span class="text-ford-600 ml-1">• ${b.time}</span>
+                        </div>
+                        ${b.note ? `<p class="text-[11px] text-slate-500 italic mt-3 bg-slate-50/50 p-3 rounded-xl border border-slate-100">"${b.note}"</p>` : ''}
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        function addToCart(productId) {
+            const product = db.products.find(p => p.id === productId);
+            if(product) {
+                sessionCart.push(product);
+                updateCartUI();
+                showToast(`បានបន្ថែមចូលកន្ត្រក`, 'success');
+                
+                // Animate Badge
+                const badge = document.getElementById('cart-badge');
+                badge.classList.remove('hidden');
+                badge.classList.add('animate-bounce');
+                setTimeout(() => badge.classList.remove('animate-bounce'), 1000);
+            }
+        }
+
+        function updateCartUI() {
+            const badge = document.getElementById('cart-badge');
+            badge.innerText = sessionCart.length;
+            sessionCart.length > 0 ? badge.classList.remove('hidden') : badge.classList.add('hidden');
+            
+            document.getElementById('cart-count').innerText = `(${sessionCart.length})`;
+            const list = document.getElementById('cart-items');
+            
+            if(sessionCart.length === 0) {
+                list.innerHTML = '<div class="flex flex-col items-center justify-center h-full text-slate-400"><div class="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm border border-slate-100"><i class="fa-solid fa-box-open text-3xl text-slate-300"></i></div><p class="text-sm font-bold">កន្ត្រកទទេ</p></div>';
+                document.getElementById('cart-total').innerText = "$0.00";
+                return;
+            }
+
+            let total = 0;
+            list.innerHTML = sessionCart.map((item, index) => {
+                total += item.price;
+                return `
+                <div class="flex gap-4 mb-4 p-4 bg-white rounded-2xl border border-slate-100 items-center shadow-sm">
+                    <div class="w-16 h-16 bg-[#f4f7fb] rounded-xl p-1 flex items-center justify-center shrink-0">
+                        <img src="https://placehold.co/100x100/f4f7fb/003a88?text=${item.img}" class="w-full h-full object-contain mix-blend-multiply">
+                    </div>
+                    <div class="flex-1">
+                        <h5 class="text-sm font-bold text-slate-800 line-clamp-1">${item.name}</h5>
+                        <p class="text-ford-600 font-black text-base mt-1">$${item.price.toFixed(2)}</p>
+                    </div>
+                    <button onclick="removeFromCart(${index})" class="w-10 h-10 rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition flex items-center justify-center"><i class="fa-solid fa-trash-can text-sm"></i></button>
+                </div>
+            `}).join('');
+            document.getElementById('cart-total').innerText = `$${total.toFixed(2)}`;
+        }
+
+        function removeFromCart(index) {
+            sessionCart.splice(index, 1);
+            updateCartUI();
+        }
+
+        function checkoutCart() {
+            if (sessionCart.length === 0) return;
+            let total = sessionCart.reduce((sum, item) => sum + item.price, 0);
+            db.revenue += total; 
+            sessionCart = [];
+            saveDB(); 
+            updateCartUI();
+            closeModal('cart-modal');
+            showToast('ទូទាត់ជោគជ័យ! ការកម្ម៉ង់ត្រូវបានបញ្ជូនទៅយានដ្ឋាន។', 'success');
+        }
+
+        // --- 5. ADMIN APP LOGIC ---
+        function initAdminApp() {
+            document.getElementById('admin-name').innerText = currentUser.name;
+            document.getElementById('admin-avatar').innerText = currentUser.avatar;
+            renderAdminDashboardStats();
+            renderAdminBookings();
+            renderAdminInventory();
+            renderAdminCRM();
+        }
+
+        function switchAdminTab(tabId, btn) {
+            document.querySelectorAll('.admin-tab-btn').forEach(b => {
+                b.classList.remove('bg-ford-600', 'text-white', 'shadow-lg');
+                b.classList.add('text-blue-200', 'hover:bg-white/10');
+                b.querySelector('i').classList.replace('text-white/90', 'text-white/60');
+            });
+            btn.classList.remove('text-blue-200', 'hover:bg-white/10');
+            btn.classList.add('bg-ford-600', 'text-white', 'shadow-lg');
+            btn.querySelector('i').classList.replace('text-white/60', 'text-white/90');
+
+            document.querySelectorAll('.admin-tab-content').forEach(c => {
+                c.classList.add('hidden');
+                c.classList.remove('block');
+            });
+            document.getElementById(`admin-tab-${tabId}`).classList.remove('hidden');
+            document.getElementById(`admin-tab-${tabId}`).classList.add('block');
+
+            const titles = { 'dashboard': 'ផ្ទាំងសង្ខេប (Dashboard)', 'bookings': 'ការកក់ទាំងអស់ (Bookings)', 'inventory': 'គ្រប់គ្រងទំនិញ (Inventory)', 'crm': 'អតិថិជន (Customers)' };
+            document.getElementById('admin-page-title').innerText = titles[tabId];
+        }
+
+        function renderAdminDashboardStats() {
+            document.getElementById('stat-total-bookings').innerText = db.bookings.length;
+            const pending = db.bookings.filter(b => b.status === 'pending').length;
+            document.getElementById('stat-pending-bookings').innerText = pending;
+            document.getElementById('stat-revenue').innerHTML = `$${Math.floor(db.revenue)}<span class="text-lg text-slate-400 font-normal">.${(db.revenue % 1).toFixed(2).substring(2) || '00'}</span>`;
+            document.getElementById('stat-customers').innerText = db.users.filter(u => u.role === 'customer').length;
+
+            const badge = document.getElementById('admin-booking-badge');
+            if (pending > 0) {
+                badge.innerText = pending;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function renderAdminBookings() {
+            const tbody = document.getElementById('admin-booking-table-body');
+            const emptyState = document.getElementById('admin-booking-empty');
+            renderAdminDashboardStats(); 
+
+            if(db.bookings.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden'); emptyState.classList.add('flex');
+                return;
+            }
+            emptyState.classList.add('hidden'); emptyState.classList.remove('flex');
+
+            tbody.innerHTML = db.bookings.map(b => {
+                const user = db.users.find(u => u.id === b.userId) || { name: 'Unknown', phone: '-', car: '-', plate: '-', avatar: '?' };
+                
+                let badge = '', actions = '';
+                if(b.status === 'pending') {
+                    badge = `<span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-md text-[11px] font-black border border-orange-200">រង់ចាំ (Pending)</span>`;
+                    actions = `
+                        <button onclick="changeBookingStatus(${b.id}, 'approved')" class="w-10 h-10 rounded-xl bg-green-50 text-green-600 hover:bg-green-500 hover:text-white transition shadow-sm mr-2" title="យល់ព្រម"><i class="fa-solid fa-check"></i></button>
+                        <button onclick="changeBookingStatus(${b.id}, 'rejected')" class="w-10 h-10 rounded-xl bg-red-50 text-red-600 hover:bg-red-500 hover:text-white transition shadow-sm mr-2" title="បដិសេធ"><i class="fa-solid fa-xmark"></i></button>
+                        <button onclick="deleteBooking(${b.id})" class="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 hover:bg-slate-300 hover:text-slate-700 transition" title="លុបចោល"><i class="fa-solid fa-trash-can"></i></button>
+                    `;
+                } else if(b.status === 'approved') {
+                    badge = `<span class="bg-green-100 text-green-700 px-3 py-1 rounded-md text-[11px] font-black border border-green-200">យល់ព្រម (Approved)</span>`;
+                    actions = `
+                        <span class="text-xs text-green-600 font-bold mr-4"><i class="fa-solid fa-check-double"></i> Done</span>
+                        <button onclick="deleteBooking(${b.id})" class="text-slate-300 hover:text-red-500 p-2 transition"><i class="fa-solid fa-trash-can"></i></button>
+                    `;
+                } else {
+                    badge = `<span class="bg-red-100 text-red-700 px-3 py-1 rounded-md text-[11px] font-black border border-red-200">បដិសេធ (Rejected)</span>`;
+                    actions = `
+                        <span class="text-xs text-red-400 font-bold mr-4"><i class="fa-solid fa-ban"></i> Cancelled</span>
+                        <button onclick="deleteBooking(${b.id})" class="text-slate-300 hover:text-red-500 p-2 transition"><i class="fa-solid fa-trash-can"></i></button>
+                    `;
+                }
+
+                return `
+                <tr class="hover:bg-slate-50 transition group">
+                    <td class="py-4 px-8 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-ford-100 text-ford-700 flex items-center justify-center font-black text-lg border border-ford-200">${user.avatar}</div>
+                        <div><div class="font-black text-slate-800">${user.name}</div><div class="text-slate-500 text-xs mt-0.5 font-medium">${user.phone}</div></div>
+                    </td>
+                    <td class="py-4 px-8">
+                        <div class="font-bold text-slate-800">${user.car}</div>
+                        <div class="inline-block mt-1 text-slate-600 text-[10px] font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200">${user.plate}</div>
+                    </td>
+                    <td class="py-4 px-8">
+                        <span class="font-black text-ford-700 text-sm">${b.service}</span>
+                        ${b.note ? `<div class="text-[11px] text-slate-500 mt-1.5 truncate max-w-[150px] italic">"${b.note}"</div>` : ''}
+                    </td>
+                    <td class="py-4 px-8">
+                        <div class="text-xs font-bold text-slate-600 bg-slate-50 py-1.5 px-3 rounded-lg border border-slate-100 inline-flex flex-col gap-1">
+                            <span><i class="fa-regular fa-calendar text-ford-400 mr-1"></i> ${b.date}</span>
+                            <span class="text-ford-700"><i class="fa-regular fa-clock text-ford-400 mr-1"></i> ${b.time}</span>
+                        </div>
+                    </td>
+                    <td class="py-4 px-8">${badge}</td>
+                    <td class="py-4 px-8 text-right whitespace-nowrap">${actions}</td>
+                </tr>
+            `}).join('');
+        }
+
+        function changeBookingStatus(id, newStatus) {
+            const index = db.bookings.findIndex(b => b.id === id);
+            if(index !== -1) {
+                db.bookings[index].status = newStatus;
+                saveDB(); 
+                renderAdminBookings();
+                showToast(`បានប្តូរស្ថានភាពទៅជា ${newStatus === 'approved' ? 'យល់ព្រម' : 'បដិសេធ'}`, newStatus === 'approved' ? 'success' : 'error');
+            }
+        }
+
+        function deleteBooking(id) {
+            if(confirm('តើអ្នកពិតជាចង់លុបប្រវត្តិការកក់នេះមែនទេ?')) {
+                db.bookings = db.bookings.filter(b => b.id !== id);
+                saveDB();
+                renderAdminBookings();
+                showToast('លុបប្រវត្តិជោគជ័យ!', 'success');
+            }
+        }
+
+        function renderAdminInventory() {
+            const tbody = document.getElementById('admin-inventory-table-body');
+            tbody.innerHTML = db.products.map((p, index) => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="py-4 px-8 flex items-center gap-4">
+                        <div class="w-14 h-14 bg-[#f4f7fb] rounded-xl flex items-center justify-center p-2 border border-slate-100">
+                            <img src="https://placehold.co/100x100/f4f7fb/003a88?text=${p.img}" class="w-full h-full object-contain mix-blend-multiply">
+                        </div>
+                        <span class="font-bold text-slate-800 text-sm">${p.name}</span>
+                    </td>
+                    <td class="py-4 px-8 font-black text-ford-700 text-lg">$${p.price.toFixed(2)}</td>
+                    <td class="py-4 px-8">
+                        <button onclick="toggleStock(${index})" class="px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition ${p.stock ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700 border border-green-200' : 'bg-red-100 text-red-700 hover:bg-green-100 hover:text-green-700 border border-red-200'}">
+                            ${p.stock ? 'In Stock (Click to Empty)' : 'Out of Stock (Click to Fill)'}
+                        </button>
+                    </td>
+                    <td class="py-4 px-8 text-right">
+                        <button onclick="deleteProduct(${index})" class="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function toggleStock(index) {
+            db.products[index].stock = !db.products[index].stock;
+            saveDB();
+            renderAdminInventory();
+        }
+
+        function deleteProduct(index) {
+            if(confirm("តើអ្នកពិតជាចង់លុបទំនិញនេះមែនទេ?")) {
+                db.products.splice(index, 1);
+                saveDB();
+                renderAdminInventory();
+                showToast("លុបទំនិញជោគជ័យ", "success");
+            }
+        }
+
+        function handleAddProduct(e) {
+            e.preventDefault();
+            const name = document.getElementById('ap-name').value;
+            const price = parseFloat(document.getElementById('ap-price').value);
+            
+            db.products.push({
+                id: Date.now(), name, price, img: "New+Part", stock: true
+            });
+            saveDB();
+            renderAdminInventory();
+            document.getElementById('add-product-form').reset();
+            document.getElementById('add-product-form').classList.add('hidden');
+            showToast("បន្ថែមទំនិញថ្មីចូលស្តុកជោគជ័យ!", "success");
+        }
+
+        function renderAdminCRM() {
+            const tbody = document.getElementById('admin-crm-table-body');
+            const customers = db.users.filter(u => u.role === 'customer');
+            
+            tbody.innerHTML = customers.map(u => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="py-4 px-8 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center font-black text-lg">${u.avatar}</div>
+                        <div><div class="font-black text-slate-800">${u.name}</div><div class="text-slate-500 text-xs mt-0.5 font-medium">${u.phone}</div></div>
+                    </td>
+                    <td class="py-4 px-8">
+                        <div class="font-bold text-slate-800">${u.car}</div>
+                        <div class="inline-block mt-1 text-slate-600 text-[10px] font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200">${u.plate}</div>
+                    </td>
+                    <td class="py-4 px-8">
+                        <span class="bg-ford-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm">VIP Member</span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
